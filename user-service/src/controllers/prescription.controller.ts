@@ -78,38 +78,43 @@ export const createPrescription: any = asyncHandler(async (req: Request, res: Re
 
   // Auto Create Patient if not found but we have a userId
   if (!patientExists && userId) {
-    console.log("Patient not found by patientNumber, checking by userId + hospitalId...");
-    
-    // First check if patient already exists for this user at this hospital
-    patientExists = await Patient.findOne({ 
-      where: { userId, hospitalId, isDelete: false } 
-    });
+    console.log("Patient not found by patientNumber, auto-creating if needed...");
+    const user = await User.findOne({ where: { id: userId, isDelete: false } });
+    console.log("User fetched:", !!user);
+
+    let booking: any;
+    try {
+      console.log("Fetching booking...");
+      booking = await httpClient.get(
+        `${process.env.BOOKING_SERVICE_URL}/booking/${bookingId}`,
+        { headers: { Authorization: req.headers.authorization } }
+      );
+      console.log("Booking fetched successfully");
+    } catch (error: any) {
+       console.error("Booking fetch failed:", error.message);
+       res.status(error.response?.status || 500).json({
+        success: false,
+        message: error.response?.data?.message || error.response?.data?.error || "Booking service error",
+        error: error.response?.data,
+      });
+      return;
+    }
+
+    const bookingPatientName = booking?.data?.data?.patient_name;
+    const bookingPatientPhone = booking?.data?.data?.patient_phone;
+
+    // Check if this exact patient already exists (same user, hospital, name, phone)
+    if (bookingPatientName && bookingPatientPhone) {
+      patientExists = await Patient.findOne({
+        where: { userId, hospitalId, name: bookingPatientName, mobileNumber: bookingPatientPhone, isDelete: false }
+      });
+    }
 
     if (patientExists) {
-      console.log("Existing patient found for userId + hospitalId:", patientExists.patientNumber);
+      console.log("Existing patient found:", patientExists.patientNumber);
       finalPatientId = patientExists.patientNumber;
-    } else {
-      console.log("No existing patient found, auto-creating patient...");
-      const user = await User.findOne({ where: { id: userId, isDelete: false } });
-      console.log("User fetched:", !!user);
-
-      let booking: any;
-      try {
-        console.log("Fetching booking...");
-        booking = await httpClient.get(
-          `${process.env.BOOKING_SERVICE_URL}/booking/${bookingId}`,
-          { headers: { Authorization: req.headers.authorization } }
-        );
-        console.log("Booking fetched successfully");
-      } catch (error: any) {
-         console.error("Booking fetch failed:", error.message);
-         res.status(error.response?.status || 500).json({
-          success: false,
-          message: error.response?.data?.message || error.response?.data?.error || "Booking service error",
-          error: error.response?.data,
-        });
-        return;
-      }
+    } else if (user) {
+      console.log("Creating new patient in DB...");
 
       const dob = booking?.data?.data?.patient_dob;
       let formattedDob = null;
@@ -118,37 +123,34 @@ export const createPrescription: any = asyncHandler(async (req: Request, res: Re
         formattedDob = `${year}-${month}-${day}`;
       }
 
-      if (user) {
-        console.log("Creating new patient in DB...");
-        // Generate hospital-scoped patientNumber
-        const [lastResult]: any = await Patient.sequelize!.query(
-          `SELECT COALESCE(MAX("patientNumber"), 0) AS "maxNum" FROM "patients" WHERE "hospitalId" = :hospitalId`,
-          {
-            replacements: { hospitalId },
-            type: QueryTypes.SELECT,
-          }
-        );
-        const patientNumber = (lastResult?.maxNum || 0) + 1;
+      // Generate hospital-scoped patientNumber
+      const [lastResult]: any = await Patient.sequelize!.query(
+        `SELECT COALESCE(MAX("patientNumber"), 0) AS "maxNum" FROM "patients" WHERE "hospitalId" = :hospitalId`,
+        {
+          replacements: { hospitalId },
+          type: QueryTypes.SELECT,
+        }
+      );
+      const patientNumber = (lastResult?.maxNum || 0) + 1;
 
-        patientExists = await Patient.create({
-          userId: user.id,
-          hospitalId: hospitalId,
-          hospitalName: fetchedHospitalName || "Unknown Hospital",
-          name: booking?.data?.data?.patient_name,
-          gender: booking?.data?.data?.patient_gender,
-          age: booking?.data?.data?.patient_age,
-          dob: formattedDob,
-          mobileNumber:  booking?.data?.data?.patient_phone,
-          addressLine: booking?.data?.data?.patient_place,
-          location: { place: booking?.data?.data?.patient_place, pincode: 0 },
-          patientNumber,
-        });
-        console.log("New patient created with patientNumber:", patientNumber);
-        
-        finalPatientId = patientExists.patientNumber;
-      } else {
-        errors.push(`User with ID ${userId} does not exist. Cannot auto-create patient.`);
-      }
+      patientExists = await Patient.create({
+        userId: user.id,
+        hospitalId: hospitalId,
+        hospitalName: fetchedHospitalName || "Unknown Hospital",
+        name: bookingPatientName,
+        gender: booking?.data?.data?.patient_gender,
+        age: booking?.data?.data?.patient_age,
+        dob: formattedDob,
+        mobileNumber: bookingPatientPhone,
+        addressLine: booking?.data?.data?.patient_place,
+        location: { place: booking?.data?.data?.patient_place, pincode: 0 },
+        patientNumber,
+      });
+      console.log("New patient created with patientNumber:", patientNumber);
+
+      finalPatientId = patientExists.patientNumber;
+    } else {
+      errors.push(`User with ID ${userId} does not exist. Cannot auto-create patient.`);
     }
   } else if (!patientExists) {
     errors.push(`Patient with ID ${patientId} does not exist and no userId provided to auto-create.`);
