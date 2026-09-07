@@ -152,6 +152,21 @@ export const createPrescription: any = asyncHandler(async (req: Request, res: Re
     } else {
       errors.push(`User with ID ${userId} does not exist. Cannot auto-create patient.`);
     }
+
+    // Update the booking in booking-service with the patientId (patientNumber)
+    if (finalPatientId && booking && !booking.data?.data?.patientId) {
+      try {
+        console.log("Updating booking with new patientId...");
+        await httpClient.put(
+          `${process.env.BOOKING_SERVICE_URL}/booking/${bookingId}`,
+          { patientId: finalPatientId },
+          { headers: { Authorization: req.headers.authorization } }
+        );
+        console.log("Booking updated successfully with patientId:", finalPatientId);
+      } catch (updateErr: any) {
+        console.error("Failed to update booking with patientId:", updateErr.message);
+      }
+    }
   } else if (!patientExists) {
     errors.push(`Patient with ID ${patientId} does not exist and no userId provided to auto-create.`);
   }

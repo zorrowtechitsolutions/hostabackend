@@ -60,10 +60,11 @@ export const Registeration: any = asyncHandler(
     if (userId) {
       try {
         await httpClient.get(
-          `${process.env.USER_SERVICE_URL}/users/${userId}`,
+          `${process.env.USER_SERVICE_URL}/internal/users/${userId}`,
           { headers: { Authorization: req.headers.authorization } }
         );
-      } catch {
+      } catch (error: any) {
+        console.error("User validation failed:", error.message);
         errors.push("User not found");
       }
     }
@@ -388,7 +389,7 @@ export const Registeration: any = asyncHandler(
 // GET ONE - GET /booking/:id
 export const getanBooking: any = asyncHandler(
   async (req: Request, res: Response) => {
-    const booking = await Booking.findByPk(req.params.id);
+    const booking = await Booking.findOne({ where: { bookingNumber: req.params.id } });
     if (!booking) {
       res.status(404).json({
         success: false,
@@ -419,7 +420,7 @@ export const updateData: any = asyncHandler(
       }
 
       // Fetch old booking to detect token changes
-      const oldBooking = await Booking.findByPk(id);
+      const oldBooking = await Booking.findOne({ where: { bookingNumber: id } });
       if (!oldBooking) {
         res.status(404).json({
           success: false,
@@ -472,7 +473,7 @@ export const updateData: any = asyncHandler(
             updatePayload.token = newToken;
 
             const booking = await Booking.update(updatePayload, {
-              where: { id: id },
+              where: { bookingNumber: id },
               returning: true,
               transaction: t,
             });
@@ -481,7 +482,7 @@ export const updateData: any = asyncHandler(
         );
       } else {
         const booking = await Booking.update(updatePayload, {
-          where: { id: id },
+          where: { bookingNumber: id },
           returning: true,
         });
         
@@ -627,7 +628,7 @@ export const bookingDelete: any = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = req.params;
 
-    const staff = await Booking.findByPk(id);
+    const staff = await Booking.findOne({ where: { bookingNumber: id } });
     if (!staff) {
       res.status(404).json({
         success: false,
@@ -639,7 +640,7 @@ export const bookingDelete: any = asyncHandler(
     }
 
     await Booking.destroy({
-      where: { id: id },
+      where: { bookingNumber: id },
     });
 
     await publishEvent("booking_events", "BOOKING_DELETED", {
