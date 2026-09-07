@@ -262,4 +262,12 @@ Prescription.init(
   }
 );
 
+import Patient from "./patient.model";
+
+Prescription.belongsTo(Patient, {
+  foreignKey: "patientId",
+  targetKey: "patientNumber",
+  as: "patientDetails"
+});
+
 export default Prescription;

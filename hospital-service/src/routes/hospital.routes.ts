@@ -19,7 +19,6 @@ import {
   verifyLoginOtp,
   resetPassword,
   changePassword,
-  sendCustomEmail,
   getanHospital,
   getHospital,
   updateData,
@@ -59,8 +58,6 @@ router.post("/hospital/refresh", refreshHospitalToken);
 router.post("/hospital/logout/:id", authenticate, checkPermission("hospital", "create"),  logout);
 
 
-// Notifications
-router.post("/hospital/notify/email", authenticate, validate(sendCustomEmailSchema), sendCustomEmail);
 
 // CRUD 
 

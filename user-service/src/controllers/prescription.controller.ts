@@ -36,18 +36,31 @@ export const createPrescription: any = asyncHandler(async (req: Request, res: Re
 
   const errors: string[] = [];
 
-  // 1. Validate Hospital (Cross-Service) & Get Hospital Name
+  // 1. Fetch Hospital and Doctor in parallel
+  console.log("Fetching hospital and doctor in parallel...");
+  const [hospitalResPromise, doctorResPromise] = await Promise.allSettled([
+    httpClient.get(`${process.env.HOSPITAL_SERVICE_URL}/hospital/${hospitalId}`, { headers: { Authorization: req.headers.authorization } }),
+    httpClient.get(`${process.env.DOCTOR_SERVICE_URL}/doctor/${doctorId}`, { headers: { Authorization: req.headers.authorization } })
+  ]);
+
   let fetchedHospitalName = hospitalName;
-  try {
-    const hospitalRes = await httpClient.get(`${process.env.HOSPITAL_SERVICE_URL}/hospital/${hospitalId}`, {
-      headers: { Authorization: req.headers.authorization }
-    });
+  if (hospitalResPromise.status === 'fulfilled') {
+    const hospitalRes = hospitalResPromise.value;
     if (!fetchedHospitalName && hospitalRes.data?.data?.name) {
       fetchedHospitalName = hospitalRes.data.data.name;
     }
-  } catch (error: any) {
-    console.error("Hospital validation failed:", error.message);
+  } else {
+    console.error("Hospital validation failed:", hospitalResPromise.reason.message);
     errors.push(`Hospital with ID ${hospitalId} does not exist or is unreachable.`);
+  }
+
+  let fetchedDoctorName = "";
+  if (doctorResPromise.status === 'fulfilled') {
+    const doctorResponse = doctorResPromise.value;
+    fetchedDoctorName = doctorResponse.data?.data?.displayName || doctorResponse.data?.data?.name || ""; 
+  } else {
+    console.error("Doctor validation failed:", doctorResPromise.reason.message);
+    errors.push(`Doctor with ID ${doctorId} does not exist or is unreachable.`);
   }
 
   // 2. Validate / Auto-Create Patient
@@ -55,77 +68,90 @@ export const createPrescription: any = asyncHandler(async (req: Request, res: Re
   let patientExists = null;
 
   if (finalPatientId) {
-    patientExists = await Patient.findOne({ where: { id: finalPatientId, isDelete: false } });
+    console.log("Fetching patient by patientNumber...");
+    patientExists = await Patient.findOne({ where: { patientNumber: finalPatientId, isDelete: false } });
+    console.log("Patient fetched:", !!patientExists);
+    if (patientExists) {
+      finalPatientId = patientExists.patientNumber;
+    }
   }
 
   // Auto Create Patient if not found but we have a userId
   if (!patientExists && userId) {
-    const user = await User.findOne({ where: { id: userId, isDelete: false } });
+    console.log("Patient not found by patientNumber, checking by userId + hospitalId...");
+    
+    // First check if patient already exists for this user at this hospital
+    patientExists = await Patient.findOne({ 
+      where: { userId, hospitalId, isDelete: false } 
+    });
 
-    let booking: any;
-    try {
-      booking = await httpClient.get(
-        `${process.env.BOOKING_SERVICE_URL}/booking/${bookingId}`,
-        { headers: { Authorization: req.headers.authorization } }
-      );
-    } catch (error: any) {
-       res.status(error.response?.status || 500).json({
-        success: false,
-        message: error.response?.data?.message || error.response?.data?.error || "Booking service error",
-        error: error.response?.data,
-      });
-      return;
-    }
-
-    const dob = booking?.data?.data?.patient_dob;
-    let formattedDob = null;
-    if (dob) {
-      const [day, month, year] = dob.split("/");
-      formattedDob = `${year}-${month}-${day}`;
-    }
-
-    if (user) {
-      // Generate hospital-scoped patientNumber
-      const [lastResult]: any = await Patient.sequelize!.query(
-        `SELECT COALESCE(MAX("patientNumber"), 0) AS "maxNum" FROM "patients" WHERE "hospitalId" = :hospitalId`,
-        {
-          replacements: { hospitalId },
-          type: QueryTypes.SELECT,
-        }
-      );
-      const patientNumber = (lastResult?.maxNum || 0) + 1;
-
-      patientExists = await Patient.create({
-        userId: user.id,
-        hospitalId: hospitalId,
-        hospitalName: fetchedHospitalName || "Unknown Hospital",
-        name: booking?.data?.data?.patient_name,
-        gender: booking?.data?.data?.patient_gender,
-        age: booking?.data?.data?.patient_age,
-        dob: formattedDob,
-        mobileNumber:  booking?.data?.data?.patient_phone,
-        addressLine: booking?.data?.data?.patient_place,
-        location: { place: booking?.data?.data?.patient_place, pincode: 0 },
-        patientNumber,
-      });
-      
-      finalPatientId = patientExists.id;
+    if (patientExists) {
+      console.log("Existing patient found for userId + hospitalId:", patientExists.patientNumber);
+      finalPatientId = patientExists.patientNumber;
     } else {
-      errors.push(`User with ID ${userId} does not exist. Cannot auto-create patient.`);
+      console.log("No existing patient found, auto-creating patient...");
+      const user = await User.findOne({ where: { id: userId, isDelete: false } });
+      console.log("User fetched:", !!user);
+
+      let booking: any;
+      try {
+        console.log("Fetching booking...");
+        booking = await httpClient.get(
+          `${process.env.BOOKING_SERVICE_URL}/booking/${bookingId}`,
+          { headers: { Authorization: req.headers.authorization } }
+        );
+        console.log("Booking fetched successfully");
+      } catch (error: any) {
+         console.error("Booking fetch failed:", error.message);
+         res.status(error.response?.status || 500).json({
+          success: false,
+          message: error.response?.data?.message || error.response?.data?.error || "Booking service error",
+          error: error.response?.data,
+        });
+        return;
+      }
+
+      const dob = booking?.data?.data?.patient_dob;
+      let formattedDob = null;
+      if (dob) {
+        const [day, month, year] = dob.split("/");
+        formattedDob = `${year}-${month}-${day}`;
+      }
+
+      if (user) {
+        console.log("Creating new patient in DB...");
+        // Generate hospital-scoped patientNumber
+        const [lastResult]: any = await Patient.sequelize!.query(
+          `SELECT COALESCE(MAX("patientNumber"), 0) AS "maxNum" FROM "patients" WHERE "hospitalId" = :hospitalId`,
+          {
+            replacements: { hospitalId },
+            type: QueryTypes.SELECT,
+          }
+        );
+        const patientNumber = (lastResult?.maxNum || 0) + 1;
+
+        patientExists = await Patient.create({
+          userId: user.id,
+          hospitalId: hospitalId,
+          hospitalName: fetchedHospitalName || "Unknown Hospital",
+          name: booking?.data?.data?.patient_name,
+          gender: booking?.data?.data?.patient_gender,
+          age: booking?.data?.data?.patient_age,
+          dob: formattedDob,
+          mobileNumber:  booking?.data?.data?.patient_phone,
+          addressLine: booking?.data?.data?.patient_place,
+          location: { place: booking?.data?.data?.patient_place, pincode: 0 },
+          patientNumber,
+        });
+        console.log("New patient created with patientNumber:", patientNumber);
+        
+        finalPatientId = patientExists.patientNumber;
+      } else {
+        errors.push(`User with ID ${userId} does not exist. Cannot auto-create patient.`);
+      }
     }
   } else if (!patientExists) {
     errors.push(`Patient with ID ${patientId} does not exist and no userId provided to auto-create.`);
-  }
-
-  // 3. Validate Doctor (Cross-Service: doctor-service)
-  try {
-    const doctorResponse = await httpClient.get(`${process.env.DOCTOR_SERVICE_URL}/doctor/${doctorId}`, {
-      headers: { Authorization: req.headers.authorization }
-    });
-    const doctorName = doctorResponse.data.data.name; 
-  } catch (error: any) {
-    console.error("Doctor validation failed:", error.message);
-    errors.push(`Doctor with ID ${doctorId} does not exist or is unreachable.`);
   }
 
   // 4. Return all errors if any
@@ -140,6 +166,7 @@ export const createPrescription: any = asyncHandler(async (req: Request, res: Re
 
   const finalUserId = patientExists ? patientExists.userId : userId;
 
+  console.log("Creating Prescription in DB...");
   // 4. Create Prescription
   const prescription = await Prescription.create({
     bookingId, hospitalId, doctorId, patientId: finalPatientId, userId: finalUserId, complaint, medications, investigations, advice, next_consultation, empty_stomach, prescribedBy, 
@@ -151,6 +178,7 @@ export const createPrescription: any = asyncHandler(async (req: Request, res: Re
   contact,
   gender,
   });
+  console.log("Prescription created.");
 
 
      // 4. If any vitals field is provided, create a vitals record
@@ -174,18 +202,6 @@ export const createPrescription: any = asyncHandler(async (req: Request, res: Re
       });
     }
 
-
-  let fetchedDoctorName = "";
-  try {
-    const doctorRes = await httpClient.get(
-      `${process.env.DOCTOR_SERVICE_URL}/doctor/${doctorId}`,
-      { headers: { Authorization: req.headers.authorization } },
-    );
-    fetchedDoctorName = doctorRes.data?.data?.displayName || "";
-  } catch (err: any) {
-    console.error("⚠️ Failed to fetch doctor name for prescription event:", err.message);
-  }
-
   void publishEvent(
     "prescription_events",
     "PRESCRIPTION_CREATED",
@@ -200,7 +216,6 @@ export const createPrescription: any = asyncHandler(async (req: Request, res: Re
       hospitalName: fetchedHospitalName,
     }
   );
-
 
   res.status(201).json({
     success: true,
@@ -414,6 +429,8 @@ export const updateData: any = asyncHandler(async (req: Request, res: Response) 
 
 
 
+  const patient = await Patient.findOne({ where: { id: prescription[1][0].patientId, isDelete: false } });
+
   // 🔄 Save/Update Vitals if provided
   if (vitals && typeof vitals === 'object') {
     const existingVitals = await PatientVitals.findOne({ where: { prescriptionId: id } });
@@ -423,17 +440,11 @@ export const updateData: any = asyncHandler(async (req: Request, res: Response) 
     } else {
       await PatientVitals.create({
         ...vitals,
-        patientId: prescription[1][0].patientId,
+        patientId: patient ? patient.id : null,
         prescriptionId: id
       });
     }
   }
-
-
-
-
-
-  const patient = await Patient.findOne({ where: { id: prescription[1][0].patientId, isDelete: false } });
 
   let doctorName = "";
   let hospitalName = "";
