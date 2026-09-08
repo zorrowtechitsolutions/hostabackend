@@ -88,28 +88,27 @@ jobs:
             mkdir -p /home/ubuntu/app
             cd /home/ubuntu/app
             
-            # Sync .env files individually to prevent variable collisions (like PORT)
-            echo "${{ secrets.APIGATEWAY_SERVICE_ENV }}" > .env.api-gateway
-            echo "${{ secrets.USER_SERVICE_ENV }}" > .env.user-service
-            echo "${{ secrets.AUTH_SERVICE_ENV }}" > .env.auth-service
-            echo "${{ secrets.AMBULANCE_SERVICE_ENV }}" > .env.ambulance-service
-            echo "${{ secrets.BLOODDONOR_SERVICE_ENV }}" > .env.blood-service
-            echo "${{ secrets.BLOODBANK_SERVICE_ENV }}" > .env.blood-bank-service
-            # echo "${{ secrets.PHARMACY_SERVICE_ENV }}" > .env.pharmacy-service
-            echo "${{ secrets.STAFF_SERVICE_ENV }}" > .env.staff-service
-            echo "${{ secrets.DOCTOR_SERVICE_ENV }}" > .env.doctor-service
-            echo "${{ secrets.SPECIALITY_SERVICE_ENV }}" > .env.speciality-service
-            echo "${{ secrets.HOSPITAL_SERVICE_ENV }}" > .env.hospital-service
-            # echo "${{ secrets.MEDICINREMINDER_SERVICE_ENV }}" > .env.medicine-reminder-service
-            echo "${{ secrets.BOOKING_SERVICE_ENV }}" > .env.booking-service
-            echo "${{ secrets.NOTIFICATION_SERVICE_ENV }}" > .env.notification-service
-            echo "${{ secrets.REVIEW_SERVICE_ENV }}" > .env.review-service
-            # echo "${{ secrets.LAB_SERVICE_ENV }}" > .env.lab-service
-            echo "${{ secrets.ADS_SERVICE_ENV }}" > .env.ads-service
-            echo "${{ secrets.ROLE_SERVICE_ENV }}" > .env.role-service
-            echo "${{ secrets.S3_SERVICE_ENV }}" > .env.s3-service
-            echo "${{ secrets.BULMQ_SERVICE_ENV }}" > .env.bulmq-service
-            echo "${{ secrets.SOCKETIO_SERVICE_ENV }}" > .env.socketio-service
+            # Sync .env files individually into service directories matching docker-compose.prod.yml
+            mkdir -p services/api-gateway services/user-service services/auth-service services/ambulance-service services/blooddonor-service services/blood-bank-service services/staff-service services/doctor-service services/speciality-service services/hospital-service services/booking-service services/notification-service services/review-service services/ads-service services/role-service services/s3-service services/bulmq-service services/socketio-service
+
+            echo "${{ secrets.APIGATEWAY_SERVICE_ENV }}" > services/api-gateway/.env
+            echo "${{ secrets.USER_SERVICE_ENV }}" > services/user-service/.env
+            echo "${{ secrets.AUTH_SERVICE_ENV }}" > services/auth-service/.env
+            echo "${{ secrets.AMBULANCE_SERVICE_ENV }}" > services/ambulance-service/.env
+            echo "${{ secrets.BLOODDONOR_SERVICE_ENV }}" > services/blooddonor-service/.env
+            echo "${{ secrets.BLOODBANK_SERVICE_ENV }}" > services/blood-bank-service/.env
+            echo "${{ secrets.STAFF_SERVICE_ENV }}" > services/staff-service/.env
+            echo "${{ secrets.DOCTOR_SERVICE_ENV }}" > services/doctor-service/.env
+            echo "${{ secrets.SPECIALITY_SERVICE_ENV }}" > services/speciality-service/.env
+            echo "${{ secrets.HOSPITAL_SERVICE_ENV }}" > services/hospital-service/.env
+            echo "${{ secrets.BOOKING_SERVICE_ENV }}" > services/booking-service/.env
+            echo "${{ secrets.NOTIFICATION_SERVICE_ENV }}" > services/notification-service/.env
+            echo "${{ secrets.REVIEW_SERVICE_ENV }}" > services/review-service/.env
+            echo "${{ secrets.ADS_SERVICE_ENV }}" > services/ads-service/.env
+            echo "${{ secrets.ROLE_SERVICE_ENV }}" > services/role-service/.env
+            echo "${{ secrets.S3_SERVICE_ENV }}" > services/s3-service/.env
+            echo "${{ secrets.BULMQ_SERVICE_ENV }}" > services/bulmq-service/.env
+            echo "${{ secrets.SOCKETIO_SERVICE_ENV }}" > services/socketio-service/.env
                         # Login and Deploy
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
             
