@@ -5,7 +5,7 @@ services:
     restart: always
     ports:
       - "3000:3000"
-    env_file: .env.api-gateway
+    env_file: ./services/api-gateway/.env
     networks:
       - hosta-network
     healthcheck:
@@ -19,7 +19,7 @@ services:
     image: safvanmp/hosta-user-service:latest
     container_name: user-service
     restart: always
-    env_file: .env.user-service
+    env_file: ./services/user-service/.env
     networks:
       - hosta-network
     healthcheck:
@@ -33,7 +33,7 @@ services:
     image: safvanmp/hosta-ambulance-service:latest
     container_name: ambulance-service
     restart: always
-    env_file: .env.ambulance-service
+    env_file: ./services/ambulance-service/.env
     networks:
       - hosta-network
     healthcheck:
@@ -47,7 +47,7 @@ services:
     image: safvanmp/hosta-blooddonor-service:latest
     container_name: blood-donor-service
     restart: always
-    env_file: .env.blood-service
+    env_file: ./services/blooddonor-service/.env
     networks:
       - hosta-network
     healthcheck:
@@ -61,7 +61,7 @@ services:
     image: safvanmp/hosta-blood-bank-service:latest
     container_name: blood-bank-service
     restart: always
-    env_file: .env.blood-bank-service
+    env_file: ./services/blood-bank-service/.env
     networks:
       - hosta-network
     healthcheck:
@@ -75,7 +75,7 @@ services:
     image: safvanmp/hosta-staff-service:latest
     container_name: staff-service
     restart: always
-    env_file: .env.staff-service
+    env_file: ./services/staff-service/.env
     networks:
       - hosta-network
     healthcheck:
@@ -89,7 +89,7 @@ services:
     image: safvanmp/hosta-auth-service:latest
     container_name: auth-service
     restart: always
-    env_file: .env.auth-service
+    env_file: ./services/auth-service/.env
     networks:
       - hosta-network
     healthcheck:
@@ -103,7 +103,7 @@ services:
     image: safvanmp/hosta-doctor-service:latest
     container_name: doctor-service
     restart: always
-    env_file: .env.doctor-service
+    env_file: ./services/doctor-service/.env
     networks:
       - hosta-network
     healthcheck:
@@ -117,7 +117,7 @@ services:
     image: safvanmp/hosta-speciality-service:latest
     container_name: speciality-service
     restart: always
-    env_file: .env.speciality-service
+    env_file: ./services/speciality-service/.env
     networks:
       - hosta-network
     healthcheck:
@@ -131,7 +131,7 @@ services:
     image: safvanmp/hosta-hospital-service:latest
     container_name: hospital-service
     restart: always
-    env_file: .env.hospital-service
+    env_file: ./services/hospital-service/.env
     networks:
       - hosta-network
     healthcheck:
@@ -145,7 +145,7 @@ services:
     image: safvanmp/hosta-booking-service:latest
     container_name: booking-service
     restart: always
-    env_file: .env.booking-service
+    env_file: ./services/booking-service/.env
     networks:
       - hosta-network
     healthcheck:
@@ -159,7 +159,7 @@ services:
     image: safvanmp/hosta-notification-service:latest
     container_name: notification-service
     restart: always
-    env_file: .env.notification-service
+    env_file: ./services/notification-service/.env
     networks:
       - hosta-network
     healthcheck:
@@ -173,7 +173,7 @@ services:
     image: safvanmp/hosta-review-service:latest
     container_name: review-service
     restart: always
-    env_file: .env.review-service
+    env_file: ./services/review-service/.env
     networks:
       - hosta-network
     healthcheck:
@@ -187,7 +187,7 @@ services:
     image: safvanmp/hosta-ads-service:latest
     container_name: ads-service
     restart: always
-    env_file: .env.ads-service
+    env_file: ./services/ads-service/.env
     networks:
       - hosta-network
     healthcheck:
@@ -201,7 +201,7 @@ services:
     image: safvanmp/hosta-role-service:latest
     container_name: role-service
     restart: always
-    env_file: .env.role-service
+    env_file: ./services/role-service/.env
     networks:
       - hosta-network
     healthcheck:
@@ -215,7 +215,7 @@ services:
     image: safvanmp/hosta-s3-service:latest
     container_name: s3-service
     restart: always
-    env_file: .env.s3-service
+    env_file: ./services/s3-service/.env
     networks:
       - hosta-network
     healthcheck:
@@ -229,7 +229,7 @@ services:
     image: safvanmp/hosta-bulmq-service:latest
     container_name: bulmq-service
     restart: always
-    env_file: .env.bulmq-service
+    env_file: ./services/bulmq-service/.env
     networks:
       - hosta-network
     healthcheck:
@@ -243,7 +243,7 @@ services:
     image: safvanmp/hosta-socketio-service:latest
     container_name: socketio-service
     restart: always
-    env_file: .env.socketio-service
+    env_file: ./services/socketio-service/.env
     ports:
       - "3019:3019"
     networks:

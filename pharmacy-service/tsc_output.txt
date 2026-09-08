@@ -1,5 +1,0 @@
-src/controllers/pharmacy.controller.ts(36,3): error TS2345: Argument of type '(req: Request, res: Response) => Promise<Response<any, Record<string, any>> | undefined>' is not assignable to parameter of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>, number>, next: NextFunction) => void | Promise<...>'.
-  Type 'Promise<Response<any, Record<string, any>> | undefined>' is not assignable to type 'void | Promise<void>'.
-    Type 'Promise<Response<any, Record<string, any>> | undefined>' is not assignable to type 'Promise<void>'.
-      Type 'Response<any, Record<string, any>> | undefined' is not assignable to type 'void'.
-        Type 'Response<any, Record<string, any>>' is not assignable to type 'void'.
