@@ -79,15 +79,13 @@ export const publishEvent = async (
       userId: data?.userId,
     });
 
-    // IDs that should receive the event
+    // IDs that should receive the event (prefixed to match frontend room names)
     const targetIds = [
-      data?.userId,
-      data?.hospitalId,
-      data?.doctorId,
-      data?.staffId,
-    ]
-      .filter((id) => id !== undefined && id !== null)
-      .map((id) => String(id));
+      data?.userId ? `user_${data.userId}` : null,
+      data?.hospitalId ? `hospital_${data.hospitalId}` : null,
+      data?.doctorId ? `doctor_${data.doctorId}` : null,
+      data?.staffId ? `staff_${data.staffId}` : null,
+    ].filter((id): id is string => id !== null);
 
     const uniqueIds = Array.from(new Set(targetIds));
 
