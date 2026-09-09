@@ -233,6 +233,38 @@ export const Registeration: any = asyncHandler(
     const bookingNumber =
       Number(lastBooking?.maxNum || 0) + 1;
 
+    let bookingToken = token;
+    if (status === "accepted" && !bookingToken) {
+      const startOfDay = new Date(booking_date);
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(booking_date);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const [lastTokenBooking]: any = await Booking.sequelize!.query(
+        `
+        SELECT COALESCE(MAX("token"), 0) AS "maxToken"
+        FROM "bookings"
+        WHERE "doctorId" = :doctorId
+          AND "hospitalId" = :hospitalId
+          AND "booking_date" BETWEEN :startOfDay AND :endOfDay
+          AND "status" NOT IN ('cancel', 'declined')
+        `,
+        {
+          replacements: {
+            doctorId,
+            hospitalId,
+            startOfDay,
+            endOfDay,
+          },
+          type: QueryTypes.SELECT,
+          transaction: t,
+        }
+      );
+
+      bookingToken = Number(lastTokenBooking?.maxToken || 0) + 1;
+    }
+
     // ==========================================
     // Create booking
     // ==========================================
@@ -264,7 +296,7 @@ export const Registeration: any = asyncHandler(
           booking_status || "user booking",
 
         status,
-        token,
+        token: bookingToken,
         hospitalName,
       },
       {
