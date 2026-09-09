@@ -115,6 +115,14 @@ export const Registeration: any = asyncHandler(
       return;
     }
 
+    if (doctor?.data?.bookingOpen === false) {
+      res.status(400).json({
+        success: false,
+        message: "Booking is currently closed for this doctor.",
+      });
+      return;
+    }
+
     // ==============================
     // 5.5. MANUAL COUNT LIMIT CHECK & 6. CREATE BOOKING
     // ==============================
@@ -186,20 +194,18 @@ export const Registeration: any = asyncHandler(
       const endOfDay = new Date(booking_date);
       endOfDay.setHours(23, 59, 59, 999);
 
-      const currentBookingsCount = await Booking.count({
+      const todayBookingAcceptCount = await Booking.count({
         where: {
           doctorId,
           booking_date: {
             [Op.between]: [startOfDay, endOfDay],
           },
-          status: {
-            [Op.notIn]: ["cancel", "declined"],
-          },
+          status: "accepted",
         },
         transaction: t,
       });
 
-      if (currentBookingsCount >= manualCountLimit) {
+      if (todayBookingAcceptCount >= manualCountLimit) {
         throw new Error("BOOKING_LIMIT_REACHED");
       }
     }
@@ -432,6 +438,28 @@ export const updateData: any = asyncHandler(
         return;
       }
       const oldToken = oldBooking.token;
+
+      if (updatePayload.status === "accepted" && oldBooking.status !== "accepted") {
+        try {
+          const doctorRes = await httpClient.get(
+            `${process.env.DOCTOR_SERVICE_URL}/doctor/${oldBooking.doctorId}`,
+            { headers: { Authorization: req.headers.authorization } },
+          );
+          const doctorData = doctorRes.data?.data;
+          const appointmentCount = Number(doctorData?.appointmentCount || 0);
+          const acceptedToday = Number(doctorData?.todayBookingAcceptCount || 0);
+
+          if (appointmentCount > 0 && acceptedToday >= appointmentCount) {
+            res.status(400).json({
+              success: false,
+              message: `Booking limit reached. This doctor only accepts ${appointmentCount} bookings per day.`,
+            });
+            return;
+          }
+        } catch (error: any) {
+          console.error("Failed to validate doctor booking limit:", error.message);
+        }
+      }
 
       let updatedBooking;
 
@@ -905,18 +933,15 @@ export const getTodayCount = asyncHandler(async (req: Request, res: Response) =>
   const endOfDay = new Date();
   endOfDay.setHours(23, 59, 59, 999);
 
-  const takenSlots = await Booking.count({
+  const todayBookingAcceptCount = await Booking.count({
     where: {
       doctorId: Number(doctorId),
       booking_date: {
         [Op.between]: [startOfDay, endOfDay],
       },
-      status: {
-        [Op.notIn]: ['cancel', 'declined'],
-      },
+      status: "accepted",
     },
   });
 
-  res.status(200).json({ takenSlots });
+  res.status(200).json({ todayBookingAcceptCount });
 });
-

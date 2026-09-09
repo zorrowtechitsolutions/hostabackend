@@ -591,22 +591,25 @@ export const getanDoctor: any = asyncHandler(
       return;
     }
 
-    let takenSlots = 0;
+    let todayBookingAcceptCount = 0;
     try {
       const response = await axios.get(`${process.env.BOOKING_SERVICE_URL}/booking/internal/doctor/${doctor.id}/today-count`);
-      takenSlots = response.data.takenSlots || 0;
+      todayBookingAcceptCount = response.data.todayBookingAcceptCount || 0;
     } catch (err: any) {
-      console.error("Failed to fetch taken slots from booking service:", err.message);
+      console.error("Failed to fetch accepted booking count from booking service:", err.message);
     }
 
     const appointmentCount = doctor.appointmentCount || 0;
-    const leftSlots = Math.max(appointmentCount - takenSlots, 0);
+    const leftSlots = Math.max(appointmentCount - todayBookingAcceptCount, 0);
 
     const doctorData = {
       ...doctor.toJSON(),
       appointmentCount,
-      takenSlots,
       leftSlots,
+      todayBookingAcceptCount,
+      bookingOpen:
+        doctor.bookingOpen &&
+        (appointmentCount <= 0 || todayBookingAcceptCount < appointmentCount),
     };
 
     res.status(200).json({
@@ -992,25 +995,28 @@ export const getDoctors = asyncHandler(
     /* ----------------------------- FETCH SLOTS ----------------------------- */
     const updatedDoctors = await Promise.all(
       doctors.rows.map(async (doc) => {
-        let takenSlots = 0;
+        let todayBookingAcceptCount = 0;
         try {
           // Promise.all runs these concurrently, so it won't block sequentially
           const response = await axios.get(
             `${process.env.BOOKING_SERVICE_URL}/booking/internal/doctor/${doc.id}/today-count`
           );
-          takenSlots = response.data.takenSlots || 0;
+          todayBookingAcceptCount = response.data.todayBookingAcceptCount || 0;
         } catch (err: any) {
-          console.error(`Failed to fetch taken slots for doctor ${doc.id}:`, err.message);
+          console.error(`Failed to fetch accepted booking count for doctor ${doc.id}:`, err.message);
         }
 
         const appointmentCount = doc.appointmentCount || 0;
-        const leftSlots = Math.max(appointmentCount - takenSlots, 0);
+        const leftSlots = Math.max(appointmentCount - todayBookingAcceptCount, 0);
 
         return {
           ...doc.toJSON(),
           appointmentCount,
-          takenSlots,
           leftSlots,
+          todayBookingAcceptCount,
+          bookingOpen:
+            doc.bookingOpen &&
+            (appointmentCount <= 0 || todayBookingAcceptCount < appointmentCount),
         };
       })
     );
