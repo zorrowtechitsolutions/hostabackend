@@ -147,7 +147,8 @@ export const handleBookingEvent = async (routingKey: string, content: any) => {
       let msg = "";
       if (content.status === "accepted") {
         const accepter = content.actionBy === "doctor" ? "the doctor" : "the hospital";
-        msg = `Your booking (${formattedId}) with ${doctorName} at ${hospitalName} has been accepted by ${accepter}`;
+        const tokenStr = content.newToken || "N/A";
+        msg = `Your booking (${formattedId}) with ${doctorName} at ${hospitalName} has been accepted by ${accepter}. Your token number is #${tokenStr}. Please arrive at the hospital before your appointment time.`;
       } else if (content.status === "declined") {
         const decliner = content.actionBy === "doctor" ? "the doctor" : "the hospital";
         msg = `Booking (${formattedId}) with ${doctorName} at ${hospitalName} has been declined by ${decliner}`;
@@ -208,7 +209,8 @@ export const handleBookingEvent = async (routingKey: string, content: any) => {
 
         if (routingKey === "BOOKING_ACCEPTED") {
           pushTitle = "Booking Confirmed";
-          pushBody = `Appointment with ${doctorName} at ${hospitalName} confirmed`;
+          const tokenStr = content.newToken || "N/A";
+          pushBody = `Appointment with ${doctorName} at ${hospitalName} confirmed. Your token number is #${tokenStr}.`;
         } else if (routingKey === "BOOKING_UPDATED") {
           if (content.status === "declined") {
             pushTitle = "Booking Rejected";
