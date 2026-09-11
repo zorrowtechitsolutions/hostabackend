@@ -30,6 +30,23 @@ const formatBookingDate = (dateStr?: string): string => {
   });
 };
 
+const formatConsultingTime = (time?: string): string => {
+  if (!time) return "";
+  const [hourStr, minuteStr] = time.split(":");
+  let hour = parseInt(hourStr, 10);
+  const minute = minuteStr || "00";
+  if (isNaN(hour)) return time;
+  const ampm = hour >= 12 ? "PM" : "AM";
+  if (hour > 12) hour -= 12;
+  if (hour === 0) hour = 12;
+  return `${hour}:${minute} ${ampm}`;
+};
+
+const capitalizeFirst = (str?: string): string => {
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
 const getFormattedDoctorName = (name?: string): string => {
   if (!name) return "Doctor";
   if (name.startsWith("Dr.")) return name;
@@ -37,7 +54,7 @@ const getFormattedDoctorName = (name?: string): string => {
 };
 
 export const handleBookingEvent = async (routingKey: string, content: any) => {
-  const formattedId = formatBookingId(content.bookingId);
+  const formattedId = formatBookingId(content.bookingNumber);
   const doctorName = getFormattedDoctorName(content.doctorName);
   const hospitalName = content.hospitalName || "the hospital";
   const patientName = content.patient_name || "Patient";
@@ -178,7 +195,22 @@ export const handleBookingEvent = async (routingKey: string, content: any) => {
   if (routingKey === "BOOKING_UPDATED" || routingKey === "BOOKING_ACCEPTED" || routingKey === "BOOKING_COMPLETED") {
     if (content.statusChanged !== false || content.bookingChanged === true) {
       let msg = "";
-      if (content.status === "accepted") {
+      if (!content.statusChanged && content.bookingChanged === true) {
+        // Field-only update (no status change)
+        const updated = content.updatedData || {};
+        const details: string[] = [];
+
+        if (updated.doctor_name) details.push(`Doctor: ${updated.doctor_name}`);
+        if (updated.doctor_department) details.push(`Department: ${capitalizeFirst(updated.doctor_department)}`);
+        if (updated.consulting_time) details.push(`Consulting Time: ${formatConsultingTime(updated.consulting_time)}`);
+        if (updated.patient_phone) details.push(`Phone: ${updated.patient_phone}`);
+        if (updated.booking_date) details.push(`Date: ${formatBookingDate(updated.booking_date)}`);
+
+        msg = `The appointment details for ${patientName} have been updated.`;
+        if (details.length > 0) {
+          msg += `\n\n${details.join("\n")}`;
+        }
+      } else if (content.status === "accepted") {
         const accepter = content.actionBy === "doctor" ? "the doctor" : "the hospital";
         const tokenStr = content.newToken || "N/A";
         msg = `Your booking (${formattedId}) with ${doctorName} at ${hospitalName} has been accepted by ${accepter}. Your token number is #${tokenStr}. Please arrive at the hospital before your appointment time.`;
@@ -255,6 +287,9 @@ export const handleBookingEvent = async (routingKey: string, content: any) => {
           if (content.status === "declined") {
             pushTitle = "Booking Rejected";
             pushBody = `Your booking with ${doctorName} at ${hospitalName} has been rejected`;
+          } else if (!content.statusChanged && content.bookingChanged === true) {
+            pushTitle = "Booking Updated";
+            pushBody = `The appointment details for ${patientName} have been updated.`;
           } else {
             pushTitle = "Booking Updated";
             pushBody = msg;

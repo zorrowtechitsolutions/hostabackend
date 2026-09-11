@@ -379,6 +379,7 @@ export const Registeration: any = asyncHandler(
     // ==============================
     await publishEvent("booking_events", "BOOKING_REGISTERED", {
       bookingId: newbooking.id,
+      bookingNumber: newbooking.bookingNumber,
       userId,
       hospitalId,
       doctorId,
@@ -653,6 +654,7 @@ export const updateData: any = asyncHandler(
 
           booking_date: updatedBooking.booking_date,
           consulting_time: updatedBooking.consulting_time,
+          doctor_department: updatedBooking.doctor_department,
 
           status: updatedBooking.status,
 

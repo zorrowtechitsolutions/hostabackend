@@ -17,6 +17,7 @@ import sequelize from "../config/db";
 interface INotification {
 
   id: number;
+  bookingId?: number;
 
   userIds?: number[];
   hospitalIds?: number[];
@@ -45,6 +46,7 @@ type NotificationCreationAttributes =
   Optional<
     INotification,
     | "id"
+    | "bookingId"
     | "userIds"
     | "hospitalIds"
     | "doctorIds"
@@ -74,6 +76,7 @@ class Notification
 {
 
   public id!: number;
+  public bookingId?: number;
 
   public userIds?: number[];
   public hospitalIds?: number[];
@@ -106,6 +109,11 @@ Notification.init(
       type: DataTypes.INTEGER,
       autoIncrement: true,
       primaryKey: true,
+    },
+
+    bookingId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
     },
 
     /* RECEIVER IDS */
