@@ -67,6 +67,9 @@ export const handleBookingEvent = async (routingKey: string, content: any) => {
     if (content.hospitalId) {
       safeSocketEmit(`hospital_${content.hospitalId}`, "booking_event", { event: routingKey, message: msgText, data: content });
     }
+    if (content.doctorId) {
+      safeSocketEmit(`doctor_${content.doctorId}`, "booking_event", { event: routingKey, message: msgText, data: content });
+    }
 
     if (routingKey === "BOOKING_REGISTERED") {
       if (content.doctorId) {
@@ -140,10 +143,40 @@ export const handleBookingEvent = async (routingKey: string, content: any) => {
   }
 
   // ==============================
+  // BOOKING_DELETED
+  // ==============================
+  if (routingKey === "BOOKING_DELETED") {
+    const msg = `Appointment ${formattedId} has been deleted`;
+
+    await persistNotification(
+      {
+        userIds: content.userId ? [content.userId] : [],
+        hospitalIds: content.hospitalId ? [content.hospitalId] : [],
+        message: msg,
+      },
+      "Failed to save BOOKING_DELETED notification"
+    );
+
+    const recipients = [
+      content.userId ? `user_${content.userId}` : null,
+      content.hospitalId ? `hospital_${content.hospitalId}` : null,
+      content.doctorId ? `doctor_${content.doctorId}` : null,
+    ].filter(Boolean) as string[];
+
+    for (const room of new Set(recipients)) {
+      safeSocketEmit(room, "booking_event", {
+        event: routingKey,
+        message: msg,
+        data: content,
+      });
+    }
+  }
+
+  // ==============================
   // BOOKING_UPDATED / BOOKING_ACCEPTED / BOOKING_COMPLETED
   // ==============================
   if (routingKey === "BOOKING_UPDATED" || routingKey === "BOOKING_ACCEPTED" || routingKey === "BOOKING_COMPLETED") {
-    if (content.statusChanged !== false) {
+    if (content.statusChanged !== false || content.bookingChanged === true) {
       let msg = "";
       if (content.status === "accepted") {
         const accepter = content.actionBy === "doctor" ? "the doctor" : "the hospital";
@@ -193,6 +226,13 @@ export const handleBookingEvent = async (routingKey: string, content: any) => {
           message: msg,
           bookingId: content.bookingId,
           status: content.status,
+        });
+      }
+      if (content.doctorId) {
+        safeSocketEmit(`doctor_${content.doctorId}`, "booking_event", {
+          event: routingKey,
+          message: msg,
+          data: content,
         });
       }
 
@@ -254,6 +294,20 @@ export const handleBookingEvent = async (routingKey: string, content: any) => {
 
     if (content.userId) {
       safeSocketEmit(`user_${content.userId}`, "booking_event", {
+        event: routingKey,
+        message: tokenMsg,
+        data: content,
+      });
+    }
+    if (content.hospitalId) {
+      safeSocketEmit(`hospital_${content.hospitalId}`, "booking_event", {
+        event: routingKey,
+        message: tokenMsg,
+        data: content,
+      });
+    }
+    if (content.doctorId) {
+      safeSocketEmit(`doctor_${content.doctorId}`, "booking_event", {
         event: routingKey,
         message: tokenMsg,
         data: content,

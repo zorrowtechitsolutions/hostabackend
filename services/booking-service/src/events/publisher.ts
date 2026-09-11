@@ -1,6 +1,5 @@
 import amqp from 'amqplib';
 import { env } from '../config/env';
-import axios from 'axios';
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -79,43 +78,7 @@ export const publishEvent = async (
       userId: data?.userId,
     });
 
-    // IDs that should receive the event (prefixed to match frontend room names)
-    const targetIds = [
-      data?.userId ? `user_${data.userId}` : null,
-      data?.hospitalId ? `hospital_${data.hospitalId}` : null,
-      data?.doctorId ? `doctor_${data.doctorId}` : null,
-      data?.staffId ? `staff_${data.staffId}` : null,
-    ].filter((id): id is string => id !== null);
-
-    const uniqueIds = Array.from(new Set(targetIds));
-
-    if (uniqueIds.length > 0) {
-      await Promise.allSettled(
-        uniqueIds.map(async (id) => {
-          try {
-            await axios.post(
-              `${process.env.SOCKETIO_SERVICE_URL}/emit-event`,
-              {
-                event: "booking_event",
-                userId: id,
-                data: {
-                  event: routingKey,
-                  data,
-                },
-              }
-            );
-            console.log(`📡 Socket event sent to ID: ${id}`);
-          } catch (err: any) {
-            console.error(
-              `❌ Failed to emit event to ${id}:`,
-              err.message
-            );
-          }
-        })
-      );
-    } else {
-      console.warn(`⚠️ No target IDs found for event ${routingKey}`);
-    }
+    // Socket.IO delivery is handled by notification-service after RabbitMQ consumption.
   } catch (error) {
     console.error("❌ Event Publish Error:", error);
   }

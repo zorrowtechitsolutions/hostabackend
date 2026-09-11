@@ -110,6 +110,8 @@ export const startConsumer = async () => {
         await channel.bindQueue(queue, "booking_events", "BOOKING_CANCELLED");
         await channel.bindQueue(queue, "booking_events", "BOOKING_ACCEPTED");
         await channel.bindQueue(queue, "booking_events", "BOOKING_COMPLETED");
+        await channel.bindQueue(queue, "booking_events", "BOOKING_DELETED");
+        await channel.bindQueue(queue, "booking_events", "TOKEN_UPDATED");
         await channel.bindQueue(queue, "booking_events", "BOOKING_LIMIT_REACHED");
 
         // 3. Doctor

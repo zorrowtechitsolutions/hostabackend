@@ -562,12 +562,31 @@ export const updateData: any = asyncHandler(
         return;
       }
 
-      // ✅ Detect changes
-      const statusChanged = oldBooking.status !== updatedBooking.status;
-      const tokenChanged = updatePayload.token !== undefined && oldToken != null && oldToken !== updatedBooking.token;
+      // ==========================================
+      // DETECT BOOKING CHANGES
+      // ==========================================
 
-      if (statusChanged || tokenChanged) {
-        let eventName: "BOOKING_UPDATED" | "BOOKING_CANCELLED" | "BOOKING_ACCEPTED" | "BOOKING_COMPLETED" = "BOOKING_UPDATED";
+      const statusChanged = oldBooking.status !== updatedBooking.status;
+
+      const tokenChanged =
+        updatePayload.token !== undefined &&
+        oldToken !== updatedBooking.token;
+
+      const bookingChanged = Object.keys(updatePayload).some((key) => {
+        const oldValue = (oldBooking as any)[key];
+        const newValue = (updatedBooking as any)[key];
+
+        return String(oldValue ?? "") !== String(newValue ?? "");
+      });
+
+      // Any actual booking update should generate BOOKING_UPDATED.
+      // Status changes get their specific event name.
+      if (bookingChanged) {
+        let eventName:
+          | "BOOKING_UPDATED"
+          | "BOOKING_CANCELLED"
+          | "BOOKING_ACCEPTED"
+          | "BOOKING_COMPLETED" = "BOOKING_UPDATED";
 
         if (statusChanged) {
           if (updatedBooking.status === "cancel") {
@@ -579,7 +598,10 @@ export const updateData: any = asyncHandler(
           }
         }
 
-        // ✅ Fetch doctor and hospital names for notification
+        // ==========================================
+        // GET DOCTOR + HOSPITAL NAMES
+        // ==========================================
+
         let doctorName = "";
         let hospitalName = "";
         try {
@@ -589,7 +611,7 @@ export const updateData: any = asyncHandler(
           );
           doctorName = doctorRes.data?.data?.displayName || "";
         } catch (err: any) {
-          console.error("⚠️ Failed to fetch doctor name for event payload:", err.message);
+          console.error("⚠️ Failed to fetch doctor name:", err.message);
         }
         try {
           const hospitalRes = await httpClient.get(
@@ -598,38 +620,70 @@ export const updateData: any = asyncHandler(
           );
           hospitalName = hospitalRes.data?.data?.name || "";
         } catch (err: any) {
-          console.error("⚠️ Failed to fetch hospital name for event payload:", err.message);
+          console.error("⚠️ Failed to fetch hospital name:", err.message);
         }
 
-        const actionBy = req.body.actionBy || req.body.declinedBy || (req as any).user?.role || (req as any).user?.type || undefined;
-        const reason = req.body.reason || req.body.declineReason || undefined;
+        const actionBy =
+          req.body.actionBy ||
+          req.body.declinedBy ||
+          (req as any).user?.role ||
+          (req as any).user?.type ||
+          undefined;
 
+        const reason =
+          req.body.reason ||
+          req.body.declineReason ||
+          undefined;
+
+        // ==========================================
+        // SOCKET EVENT PAYLOAD
+        // ==========================================
         const eventPayload = {
           bookingId: updatedBooking.id,
+          bookingNumber: updatedBooking.bookingNumber,
+
           userId: updatedBooking.userId,
           hospitalId: updatedBooking.hospitalId,
           doctorId: updatedBooking.doctorId,
+
           patient_name: updatedBooking.patient_name,
+
+          doctorName,
+          hospitalName,
+
           booking_date: updatedBooking.booking_date,
+          consulting_time: updatedBooking.consulting_time,
+
           status: updatedBooking.status,
-          statusChanged: statusChanged,
-          tokenChanged: tokenChanged,
-          oldToken: oldToken,
+
+          bookingChanged,
+          statusChanged,
+          tokenChanged,
+
+          oldToken,
           newToken: updatedBooking.token,
-          doctorName: doctorName,
-          hospitalName: hospitalName,
-          reason: reason,
-          actionBy: actionBy,
+
+          reason,
+          actionBy,
+
+          updatedData: updatePayload,
+          timestamp: new Date().toISOString(),
         };
 
-        console.log("🔥 SENDING BOOKING SOCKET EVENT:", {
-          eventName,
-          bookingId: eventPayload.bookingId,
-          hospitalId: eventPayload.hospitalId,
-          doctorId: eventPayload.doctorId,
-          userId: eventPayload.userId,
-          status: eventPayload.status,
-        });
+        console.log(
+          "🔥 SENDING BOOKING SOCKET EVENT:",
+          {
+            eventName,
+            bookingId: eventPayload.bookingId,
+            bookingNumber: eventPayload.bookingNumber,
+            hospitalId: eventPayload.hospitalId,
+            doctorId: eventPayload.doctorId,
+            userId: eventPayload.userId,
+            status: eventPayload.status,
+            statusChanged,
+            tokenChanged,
+          }
+        );
 
         await publishEvent("booking_events", eventName, eventPayload);
 
