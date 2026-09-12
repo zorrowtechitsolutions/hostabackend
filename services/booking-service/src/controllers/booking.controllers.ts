@@ -942,14 +942,6 @@ export const getBookings = asyncHandler(async (req: Request, res: Response): Pro
     order: [["createdAt", "DESC"]],
   });
 
-  if (count === 0) {
-    res.status(404).json({
-      success: false,
-      message: "No data found",
-      data: [],
-    });
-    return;
-  }
 
   const totalPages = Math.ceil(count / limitNum);
 
