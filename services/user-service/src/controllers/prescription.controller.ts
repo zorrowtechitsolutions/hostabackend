@@ -184,8 +184,17 @@ export const createPrescription: any = asyncHandler(async (req: Request, res: Re
   const finalUserId = patientExists ? patientExists.userId : userId;
 
   console.log("Creating Prescription in DB...");
+
+  // Generate hospital-wise prescription number
+  const [lastPrescription]: any = await Prescription.sequelize!.query(
+    `SELECT COALESCE(MAX("prescriptionNumber"), 0) AS "maxNum" FROM "prescriptions" WHERE "hospitalId" = :hospitalId`,
+    { replacements: { hospitalId }, type: QueryTypes.SELECT }
+  );
+  const prescriptionNumber = Number(lastPrescription?.maxNum || 0) + 1;
+
   // 4. Create Prescription
   const prescription = await Prescription.create({
+    prescriptionNumber,
     bookingId, hospitalId, doctorId, patientId: finalPatientId, userId: finalUserId, complaint, medications, investigations, advice, next_consultation, empty_stomach, prescribedBy, 
    canvasBg,
   design,
@@ -224,6 +233,7 @@ export const createPrescription: any = asyncHandler(async (req: Request, res: Re
     "PRESCRIPTION_CREATED",
     {
       prescriptionId: prescription.id,
+      prescriptionNumber: prescription.prescriptionNumber,
       bookingId,
       doctorId,
       patientId: finalPatientId,
@@ -487,6 +497,7 @@ export const updateData: any = asyncHandler(async (req: Request, res: Response) 
 
   await publishEvent("prescription_events", "PRESCRIPTION_UPDATED", {
     prescriptionId: prescription[1][0].id,
+    prescriptionNumber: prescription[1][0].prescriptionNumber,
     userId: patient ? patient.userId : null,
     hospitalId: prescription[1][0].hospitalId,
     doctorName: doctorName,
@@ -569,6 +580,7 @@ export const deletePrescription: any = asyncHandler(async (req: Request, res: Re
     "PRESCRIPTION_DELETED",
     {
       prescriptionId: Number(req.params.id),
+      prescriptionNumber: user.prescriptionNumber,
       userId: patient ? patient.userId : null,
       hospitalId: user.hospitalId,
       doctorName: doctorName,

@@ -11,7 +11,7 @@ export const handlePrescriptionEvent = async (routingKey: string, content: any) 
   if (routingKey === "PRESCRIPTION_CREATED" || routingKey === "PRESCRIPTION_UPDATED" || routingKey === "PRESCRIPTION_DELETED") {
     const doctorName = content.doctorName || "Doctor";
     const hospitalName = content.hospitalName || "the hospital";
-    const formattedId = formatPrescriptionId(content.prescriptionId);
+    const formattedId = formatPrescriptionId(content.prescriptionNumber || content.prescriptionId);
 
     let msg = "";
     if (routingKey === "PRESCRIPTION_CREATED") {

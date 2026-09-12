@@ -22,6 +22,8 @@ interface IPrescription {
 
   id: number;
 
+  prescriptionNumber: number;
+  prescriptionId?: string;
   bookingId: number; // 🔥 important
   userId: number;
   patientId?: number;
@@ -88,6 +90,8 @@ class Prescription
 
   public id!: number;
 
+  public prescriptionNumber!: number;
+  public prescriptionId?: string;
   public bookingId!: number;
   public userId!: number;
   public patientId?: number;
@@ -135,6 +139,21 @@ Prescription.init(
       type: DataTypes.INTEGER,
       autoIncrement: true,
       primaryKey: true,
+    },
+
+    prescriptionNumber: {
+      type: DataTypes.INTEGER,
+      allowNull: true, // Allow null temporarily to not break existing rows before backfill
+    },
+
+    prescriptionId: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        const num = this.getDataValue("prescriptionNumber");
+        return num
+          ? `#PRS${String(num).padStart(5, "0")}`
+          : "#PRS00000";
+      },
     },
 
     bookingId: {

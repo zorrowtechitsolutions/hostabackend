@@ -315,7 +315,8 @@ export const handleBookingEvent = async (routingKey: string, content: any) => {
   // ==============================
   // TOKEN_UPDATED
   // ==============================
-  if (content.tokenChanged === true) {
+  const isJustAccepted = content.statusChanged && content.status === "accepted";
+  if (content.tokenChanged === true && !isJustAccepted) {
     const tokenMsg = `Your token number for appointment ${formattedId} with ${doctorName} at ${hospitalName} has been changed from Token #${content.oldToken ?? "N/A"} to Token #${content.newToken ?? "N/A"}. Please take note of your updated token number.`;
 
     await persistNotification(
