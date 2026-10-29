@@ -7,10 +7,18 @@ import { env } from './config/env';
 const app = express();
 app.set('trust proxy', true);
 
-app.use(cors({
-  origin: true, // Set to your frontend domain in production
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://hostahospital.com",
+      "https://www.hostahospital.com",
+      "https://test.hostahospital.com",
+     
+    ],
+    credentials: true,
+  })
+);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

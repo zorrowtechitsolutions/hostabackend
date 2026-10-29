@@ -119,12 +119,16 @@ jobs:
         uses: actions/checkout@v4
 
       # Package repository files but NEVER package .env files
+      
       - name: Create deployment archive
         shell: bash
         run: |
           set -eu
 
-          tar -czf hosta-deploy.tar.gz \
+          ARCHIVE="$RUNNER_TEMP/hosta-deploy.tar.gz"
+
+          # Create the archive outside the repository directory
+          tar \
             --exclude='.git' \
             --exclude='*/.git' \
             --exclude='node_modules' \
@@ -132,7 +136,17 @@ jobs:
             --exclude='.env*' \
             --exclude='*/.env*' \
             --exclude='hosta-deploy.tar.gz' \
+            -czf "$ARCHIVE" \
+            -C "$GITHUB_WORKSPACE" \
             .
+
+          # Copy it into the workspace for the SCP action
+          cp "$ARCHIVE" "$GITHUB_WORKSPACE/hosta-deploy.tar.gz"
+
+          test -s "$GITHUB_WORKSPACE/hosta-deploy.tar.gz"
+          echo "Demo deployment archive created successfully."
+          ls -lh "$GITHUB_WORKSPACE/hosta-deploy.tar.gz"
+
 
       - name: Copy updated project files to Demo EC2
         uses: appleboy/scp-action@v0.1.7
@@ -207,12 +221,16 @@ jobs:
         uses: actions/checkout@v4
 
       # Package repository files but NEVER package .env files
+      
       - name: Create deployment archive
         shell: bash
         run: |
           set -eu
 
-          tar -czf hosta-deploy.tar.gz \
+          ARCHIVE="$RUNNER_TEMP/hosta-deploy.tar.gz"
+
+          # Create archive outside the repository directory
+          tar \
             --exclude='.git' \
             --exclude='*/.git' \
             --exclude='node_modules' \
@@ -220,8 +238,17 @@ jobs:
             --exclude='.env*' \
             --exclude='*/.env*' \
             --exclude='hosta-deploy.tar.gz' \
+            -czf "$ARCHIVE" \
+            -C "$GITHUB_WORKSPACE" \
             .
 
+          # Copy archive into workspace for the SCP action
+          cp "$ARCHIVE" "$GITHUB_WORKSPACE/hosta-deploy.tar.gz"
+
+          test -s "$GITHUB_WORKSPACE/hosta-deploy.tar.gz"
+          echo "Production deployment archive created successfully."
+          ls -lh "$GITHUB_WORKSPACE/hosta-deploy.tar.gz"
+ 
       - name: Copy updated project files to Production EC2
         uses: appleboy/scp-action@v0.1.7
         with:
