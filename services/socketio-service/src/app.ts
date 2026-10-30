@@ -59,10 +59,18 @@ app.post("/emit-event", async (req, res) => {
             });
         }
 
-        // Check if the adapter is working
         const rooms = io.sockets.adapter.rooms;
 
-        // Emit to specific user room if userId provided
+        /**
+         * userId is expected to be a fully-qualified room name, e.g.:
+         *   "user_42"      → for a patient/user
+         *   "hospital_5"  → for a hospital admin
+         *   "doctor_8"    → for a doctor
+         *   "staff_3"     → for a staff member
+         *
+         * Publishers are responsible for constructing the correct room name
+         * before calling this endpoint.
+         */
         if (userId) {
             const roomName = String(userId);
 
@@ -71,37 +79,35 @@ app.post("/emit-event", async (req, res) => {
                 room: roomName,
                 availableRooms: Array.from(rooms.keys()).filter(r => !r.startsWith('/')),
             });
-            
-            // Check if room exists
+
+            // Check if room exists and has connected clients
             const room = rooms.get(roomName);
             if (!room || room.size === 0) {
                 return res.status(200).json({
                     success: true,
-                    message: `No users connected in room ${roomName}; event skipped`,
+                    message: `No users connected in room '${roomName}'; event skipped`,
                     availableRooms: Array.from(rooms.keys()).filter(r => !r.startsWith('/')),
                     roomEmpty: true
                 });
             }
 
-            // Emit the event
             io.to(roomName).emit(event, data);
-            
-            console.log(`✅ Event '${event}' emitted to room ${roomName} (${room.size} clients)`);
+            console.log(`✅ Event '${event}' emitted to room '${roomName}' (${room.size} clients)`);
 
             return res.status(200).json({
                 success: true,
-                message: `Event '${event}' emitted successfully to room ${roomName}`,
-                emittedTo: userId,
+                message: `Event '${event}' emitted successfully to room '${roomName}'`,
+                emittedTo: roomName,
                 roomSize: room.size
             });
         } else {
-            // Broadcast to all connected clients
+            // No room specified — broadcast to ALL connected clients
             const clientCount = io.sockets.sockets.size;
             io.emit(event, data);
-          
+
             return res.status(200).json({
                 success: true,
-                message: `Event '${event}' emitted to all clients`,
+                message: `Event '${event}' broadcast to all clients`,
                 clientCount
             });
         }

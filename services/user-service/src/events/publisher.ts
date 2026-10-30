@@ -51,7 +51,8 @@ export const publishEvent = async (exchange: string, routingKey: string, data: a
 
             await axios.post(`${process.env.SOCKETIO_SERVICE_URL}/emit-event`, {
                 event: routingKey,
-                userId: data?.userId,
+                // Room name must match what the frontend joins: "user_<id>"
+                userId: data?.userId ? `user_${data.userId}` : null,
                 data
             }, {
                 timeout: 3000,

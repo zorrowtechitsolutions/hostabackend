@@ -27,9 +27,24 @@ const createRedisClient = () => {
 };
 
 export const initSocket = async (server: HttpServer) => {
+  // Support comma-separated origins in CLIENT_URL, e.g.:
+  // CLIENT_URL=https://test.hostahospital.com,http://localhost:5173
+  const allowedOrigins = (env.CLIENT_URL || "*")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+
   io = new Server(server, {
     cors: {
-      origin: env.CLIENT_URL || "*",
+      origin: allowedOrigins.length === 1 && allowedOrigins[0] === "*"
+        ? "*"
+        : (origin, callback) => {
+            if (!origin || allowedOrigins.includes(origin)) {
+              callback(null, true);
+            } else {
+              callback(new Error(`CORS: origin '${origin}' not allowed`));
+            }
+          },
       methods: ["GET", "POST"],
       credentials: true,
     },

@@ -25,7 +25,12 @@ export const publishEvent = async (exchange: string, routingKey: string, data: a
         
             await axios.post(`${process.env.SOCKETIO_SERVICE_URL}/emit-event`, {
             event: routingKey,
-            userId : data.userId || data.hospitalId,
+            // Room names must match what the frontend joins (e.g. "user_42", "hospital_5")
+            userId: data.userId
+                ? `user_${data.userId}`
+                : data.hospitalId
+                ? `hospital_${data.hospitalId}`
+                : null,
             data
         });
         
