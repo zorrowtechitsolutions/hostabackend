@@ -56,18 +56,32 @@ export const publishEvent = async (exchange: string, routingKey: string, data: a
                 if (data?.userId) targetRooms.push(`user_${data.userId}`);
 
                 if (exchange === "patient_events") {
-                    // Send wrapper event expected by frontend: socket.on("patient_event", ...)
+                    const patientPayload = {
+                        event: routingKey,
+                        message: `Patient ${routingKey.toLowerCase().replace("patient_", "")}`,
+                        data
+                    };
+
+                    // Emit patient_event (for frontend patient listeners)
                     await axios.post(`${process.env.SOCKETIO_SERVICE_URL}/emit-event`, {
                         event: "patient_event",
                         rooms: targetRooms,
-                        data: {
-                            event: routingKey,
-                            message: `Patient ${routingKey.toLowerCase().replace("patient_", "")}`,
-                            data
-                        }
-                    }, {
-                        timeout: 3000,
-                    });
+                        data: patientPayload
+                    }, { timeout: 3000 });
+
+                    // Emit hospital_event (for general hospital notification feed)
+                    await axios.post(`${process.env.SOCKETIO_SERVICE_URL}/emit-event`, {
+                        event: "hospital_event",
+                        rooms: targetRooms,
+                        data: patientPayload
+                    }, { timeout: 3000 });
+
+                    // Emit emergency_alert (for real-time toast/alert UI)
+                    await axios.post(`${process.env.SOCKETIO_SERVICE_URL}/emit-event`, {
+                        event: "emergency_alert",
+                        rooms: targetRooms,
+                        data: patientPayload
+                    }, { timeout: 3000 });
                 } else {
                     await axios.post(`${process.env.SOCKETIO_SERVICE_URL}/emit-event`, {
                         event: routingKey,
