@@ -187,6 +187,7 @@ services:
     image: safvanmp/hosta-ads-service:latest
     container_name: ads-service
     restart: always
+    command: ["node", "dist/server.js"]
     env_file: ./services/ads-service/.env
     networks:
       - hosta-network

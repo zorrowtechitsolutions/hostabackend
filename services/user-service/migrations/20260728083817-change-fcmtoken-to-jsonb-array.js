@@ -2,25 +2,34 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    // Remove old varchar column
-    await queryInterface.removeColumn("users", "fcmToken");
-
-    // Add new JSONB array column
-    await queryInterface.addColumn("users", "fcmToken", {
-      type: Sequelize.ARRAY(Sequelize.JSONB),
-      allowNull: false,
-      defaultValue: [],
-    });
+    const tableInfo = await queryInterface.describeTable("users");
+    if (tableInfo.fcmToken) {
+      const typeStr = String(tableInfo.fcmToken.type || "");
+      if (!typeStr.includes("ARRAY") && !typeStr.includes("JSON")) {
+        await queryInterface.removeColumn("users", "fcmToken");
+        await queryInterface.addColumn("users", "fcmToken", {
+          type: Sequelize.ARRAY(Sequelize.JSONB),
+          allowNull: false,
+          defaultValue: [],
+        });
+      }
+    } else {
+      await queryInterface.addColumn("users", "fcmToken", {
+        type: Sequelize.ARRAY(Sequelize.JSONB),
+        allowNull: false,
+        defaultValue: [],
+      });
+    }
   },
 
   async down(queryInterface, Sequelize) {
-    // Remove JSONB array column
-    await queryInterface.removeColumn("users", "fcmToken");
-
-    // Restore old varchar column
-    await queryInterface.addColumn("users", "fcmToken", {
-      type: Sequelize.STRING,
-      allowNull: true,
-    });
+    const tableInfo = await queryInterface.describeTable("users");
+    if (tableInfo.fcmToken) {
+      await queryInterface.removeColumn("users", "fcmToken");
+      await queryInterface.addColumn("users", "fcmToken", {
+        type: Sequelize.STRING,
+        allowNull: true,
+      });
+    }
   },
 };

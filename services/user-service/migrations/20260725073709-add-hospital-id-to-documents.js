@@ -2,17 +2,23 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.addColumn("documents", "hospitalId", {
-      type: Sequelize.INTEGER,
-      allowNull: false,
-      defaultValue: 1, // temporary for existing rows
-    });
+    const tableInfo = await queryInterface.describeTable("documents");
+    if (!tableInfo.hospitalId) {
+      await queryInterface.addColumn("documents", "hospitalId", {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 1, // temporary for existing rows
+      });
 
-    await queryInterface.addIndex("documents", ["hospitalId"]);
+      await queryInterface.addIndex("documents", ["hospitalId"]).catch(() => {});
+    }
   },
 
   async down(queryInterface) {
-    await queryInterface.removeIndex("documents", ["hospitalId"]);
-    await queryInterface.removeColumn("documents", "hospitalId");
+    const tableInfo = await queryInterface.describeTable("documents");
+    if (tableInfo.hospitalId) {
+      await queryInterface.removeIndex("documents", ["hospitalId"]).catch(() => {});
+      await queryInterface.removeColumn("documents", "hospitalId");
+    }
   },
 };

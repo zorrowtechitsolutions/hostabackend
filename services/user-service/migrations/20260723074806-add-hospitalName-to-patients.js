@@ -3,13 +3,19 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up (queryInterface, Sequelize) {
-    await queryInterface.addColumn('patients', 'hospitalName', {
-      type: Sequelize.STRING,
-      allowNull: true,
-    });
+    const tableInfo = await queryInterface.describeTable('patients');
+    if (!tableInfo.hospitalName) {
+      await queryInterface.addColumn('patients', 'hospitalName', {
+        type: Sequelize.STRING,
+        allowNull: true,
+      });
+    }
   },
 
   async down (queryInterface, Sequelize) {
-    await queryInterface.removeColumn('patients', 'hospitalName');
+    const tableInfo = await queryInterface.describeTable('patients');
+    if (tableInfo.hospitalName) {
+      await queryInterface.removeColumn('patients', 'hospitalName');
+    }
   }
 };
