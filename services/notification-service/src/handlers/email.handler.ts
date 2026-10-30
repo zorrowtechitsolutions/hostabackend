@@ -22,14 +22,23 @@ export const handleEmailEvent = async (
     try {
         const { notificationId, hospitalId, recipients, subject, message, createdBy } = content;
 
+        const emitEmailStatus = (event: string, message: string, data: any) => {
+            const payload = { event, message, data };
+            if (hospitalId) {
+                safeSocketEmit(`hospital_${hospitalId}`, "email_event", payload);
+            }
+            if (createdBy) {
+                safeSocketEmit(`staff_${createdBy}`, "email_event", payload);
+                safeSocketEmit(`user_${createdBy}`, "email_event", payload);
+            }
+        };
+
         // ── Emit "SENDING" socket event ──
-        if (hospitalId) {
-            safeSocketEmit(`hospital_${hospitalId}`, "email_event", {
-                event: "EMAIL_SENDING",
-                message: `Sending email: "${subject}"...`,
-                data: { notificationId, subject, status: "SENDING" },
-            });
-        }
+        emitEmailStatus("EMAIL_SENDING", `Sending email: "${subject}"...`, {
+            notificationId,
+            subject,
+            status: "SENDING",
+        });
 
         let allEmails: any[] = [];
 
@@ -119,13 +128,12 @@ export const handleEmailEvent = async (
             }
 
             // ── Emit "FAILED" socket event (no recipients found) ──
-            if (hospitalId) {
-                safeSocketEmit(`hospital_${hospitalId}`, "email_event", {
-                    event: "EMAIL_FAILED",
-                    message: `Email "${subject}" failed: No recipients found`,
-                    data: { notificationId, subject, status: "FAILED", reason: "No recipients found" },
-                });
-            }
+            emitEmailStatus("EMAIL_FAILED", `Email "${subject}" failed: No recipients found`, {
+                notificationId,
+                subject,
+                status: "FAILED",
+                reason: "No recipients found",
+            });
 
             return;
         }
@@ -198,30 +206,24 @@ export const handleEmailEvent = async (
         }
 
         // ── Emit final status socket event ──
-        if (hospitalId) {
-            const socketEvent = finalStatus === "SUCCESS" ? "EMAIL_SUCCESS"
-                : finalStatus === "PARTIAL" ? "EMAIL_PARTIAL"
-                : "EMAIL_FAILED";
+        const socketEvent = finalStatus === "SUCCESS" ? "EMAIL_SUCCESS"
+            : finalStatus === "PARTIAL" ? "EMAIL_PARTIAL"
+            : "EMAIL_FAILED";
 
-            const socketMessage = finalStatus === "SUCCESS"
-                ? `Email "${subject}" sent successfully to ${successCount} recipient(s)`
-                : finalStatus === "PARTIAL"
-                    ? `Email "${subject}": ${successCount} sent, ${failedCount} failed`
-                    : `Email "${subject}" failed to send`;
+        const socketMessage = finalStatus === "SUCCESS"
+            ? `Email "${subject}" sent successfully to ${successCount} recipient(s)`
+            : finalStatus === "PARTIAL"
+                ? `Email "${subject}": ${successCount} sent, ${failedCount} failed`
+                : `Email "${subject}" failed to send`;
 
-            safeSocketEmit(`hospital_${hospitalId}`, "email_event", {
-                event: socketEvent,
-                message: socketMessage,
-                data: {
-                    notificationId,
-                    subject,
-                    status: finalStatus,
-                    successCount,
-                    failedCount,
-                    totalRecipients: uniqueEmails.length,
-                },
-            });
-        }
+        emitEmailStatus(socketEvent, socketMessage, {
+            notificationId,
+            subject,
+            status: finalStatus,
+            successCount,
+            failedCount,
+            totalRecipients: uniqueEmails.length,
+        });
     } catch (error: any) {
         if (content.notificationId) {
             await EmailNotification.update(
@@ -231,8 +233,30 @@ export const handleEmailEvent = async (
         }
 
         // ── Emit error socket event ──
-        if (content.hospitalId) {
+        if (content?.hospitalId) {
             safeSocketEmit(`hospital_${content.hospitalId}`, "email_event", {
+                event: "EMAIL_FAILED",
+                message: `Email "${content.subject}" failed: ${error.message}`,
+                data: {
+                    notificationId: content.notificationId,
+                    subject: content.subject,
+                    status: "FAILED",
+                    error: error.message,
+                },
+            });
+        }
+        if (content?.createdBy) {
+            safeSocketEmit(`staff_${content.createdBy}`, "email_event", {
+                event: "EMAIL_FAILED",
+                message: `Email "${content.subject}" failed: ${error.message}`,
+                data: {
+                    notificationId: content.notificationId,
+                    subject: content.subject,
+                    status: "FAILED",
+                    error: error.message,
+                },
+            });
+            safeSocketEmit(`user_${content.createdBy}`, "email_event", {
                 event: "EMAIL_FAILED",
                 message: `Email "${content.subject}" failed: ${error.message}`,
                 data: {

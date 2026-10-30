@@ -50,7 +50,7 @@ app.use(
 
 app.post("/emit-event", async (req, res) => {
     try {
-        const { event, userId, data } = req.body;
+        const { event, room, rooms: customRooms, userId, data } = req.body;
 
         if (!io) {
             return res.status(503).json({
@@ -59,64 +59,73 @@ app.post("/emit-event", async (req, res) => {
             });
         }
 
-        const rooms = io.sockets.adapter.rooms;
+        const activeRooms = io.sockets.adapter.rooms;
+        const targetRooms = new Set<string>();
 
-        /**
-         * userId is expected to be a fully-qualified room name, e.g.:
-         *   "user_42"      → for a patient/user
-         *   "hospital_5"  → for a hospital admin
-         *   "doctor_8"    → for a doctor
-         *   "staff_3"     → for a staff member
-         *
-         * Publishers are responsible for constructing the correct room name
-         * before calling this endpoint.
-         */
+        // 1. Explicit single room
+        if (room) {
+            targetRooms.add(String(room));
+        }
+
+        // 2. Explicit multiple rooms
+        if (Array.isArray(customRooms)) {
+            customRooms.forEach(r => {
+                if (r) targetRooms.add(String(r));
+            });
+        }
+
+        // 3. Fallback resolution for services passing raw userId
         if (userId) {
-            const roomName = String(userId);
+            const rawId = String(userId);
+            targetRooms.add(rawId);
+            targetRooms.add(`hospital_${rawId}`);
+            targetRooms.add(`user_${rawId}`);
+            targetRooms.add(`doctor_${rawId}`);
+            targetRooms.add(`staff_${rawId}`);
+            targetRooms.add(`role_${rawId}`);
+        }
+
+        if (targetRooms.size > 0) {
+            let emittedCount = 0;
+            const reachedRooms: string[] = [];
+
+            for (const rName of targetRooms) {
+                const r = activeRooms.get(rName);
+                if (r && r.size > 0) {
+                    io.to(rName).emit(event, data);
+                    emittedCount += r.size;
+                    reachedRooms.push(rName);
+                }
+            }
 
             console.log("📡 SOCKET EMIT:", {
                 event,
-                room: roomName,
-                availableRooms: Array.from(rooms.keys()).filter(r => !r.startsWith('/')),
+                targets: Array.from(targetRooms),
+                reachedRooms,
+                clientsReached: emittedCount,
             });
-
-            // Check if room exists and has connected clients
-            const room = rooms.get(roomName);
-            if (!room || room.size === 0) {
-                return res.status(200).json({
-                    success: true,
-                    message: `No users connected in room '${roomName}'; event skipped`,
-                    availableRooms: Array.from(rooms.keys()).filter(r => !r.startsWith('/')),
-                    roomEmpty: true
-                });
-            }
-
-            io.to(roomName).emit(event, data);
-            console.log(`✅ Event '${event}' emitted to room '${roomName}' (${room.size} clients)`);
 
             return res.status(200).json({
                 success: true,
-                message: `Event '${event}' emitted successfully to room '${roomName}'`,
-                emittedTo: roomName,
-                roomSize: room.size
+                message: reachedRooms.length > 0
+                    ? `Event '${event}' emitted to rooms: ${reachedRooms.join(", ")}`
+                    : `No active clients found in target rooms: ${Array.from(targetRooms).join(", ")}`,
+                reachedRooms,
+                clientsReached: emittedCount
             });
         } else {
-            // No room specified — broadcast to ALL connected clients
+            // Broadcast to all connected clients
             const clientCount = io.sockets.sockets.size;
             io.emit(event, data);
 
             return res.status(200).json({
                 success: true,
-                message: `Event '${event}' broadcast to all clients`,
+                message: `Event '${event}' emitted to all clients`,
                 clientCount
             });
         }
 
-
-       
-
     } catch (error: any) {
-
         console.error('❌ Error emitting event:', error);
         return res.status(500).json({
             success: false,

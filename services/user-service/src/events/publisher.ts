@@ -49,14 +49,40 @@ export const publishEvent = async (exchange: string, routingKey: string, data: a
         await channel.assertExchange(exchange, 'direct', { durable: true });
         channel.publish(exchange, routingKey, Buffer.from(JSON.stringify(data)), { persistent: true });
 
-            await axios.post(`${process.env.SOCKETIO_SERVICE_URL}/emit-event`, {
-                event: routingKey,
-                // Room name must match what the frontend joins: "user_<id>"
-                userId: data?.userId ? `user_${data.userId}` : null,
-                data
-            }, {
-                timeout: 3000,
-            });
+        if (process.env.SOCKETIO_SERVICE_URL) {
+            try {
+                const targetRooms: string[] = [];
+                if (data?.hospitalId) targetRooms.push(`hospital_${data.hospitalId}`);
+                if (data?.userId) targetRooms.push(`user_${data.userId}`);
+
+                if (exchange === "patient_events") {
+                    // Send wrapper event expected by frontend: socket.on("patient_event", ...)
+                    await axios.post(`${process.env.SOCKETIO_SERVICE_URL}/emit-event`, {
+                        event: "patient_event",
+                        rooms: targetRooms,
+                        data: {
+                            event: routingKey,
+                            message: `Patient ${routingKey.toLowerCase().replace("patient_", "")}`,
+                            data
+                        }
+                    }, {
+                        timeout: 3000,
+                    });
+                } else {
+                    await axios.post(`${process.env.SOCKETIO_SERVICE_URL}/emit-event`, {
+                        event: routingKey,
+                        rooms: targetRooms.length > 0 ? targetRooms : undefined,
+                        userId: data?.userId,
+                        data
+                    }, {
+                        timeout: 3000,
+                    });
+                }
+            } catch (socketErr: any) {
+                // Log non-blocking socket error
+                console.warn(`⚠️ Failed to emit socket event via axios: ${socketErr.message}`);
+            }
+        }
 
     } catch (error) {
         console.error('❌ Event Publish Error:', error);
