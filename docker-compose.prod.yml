@@ -160,6 +160,9 @@ services:
     container_name: notification-service
     restart: always
     env_file: ./services/notification-service/.env
+    environment:
+      APP_ENV: production
+      SOCKET_IO_REDIS_KEY: hosta:production:socket.io
     networks:
       - hosta-network
     healthcheck:
@@ -245,6 +248,9 @@ services:
     container_name: socketio-service
     restart: always
     env_file: ./services/socketio-service/.env
+    environment:
+      APP_ENV: production
+      SOCKET_IO_REDIS_KEY: hosta:production:socket.io
     ports:
       - "3019:3019"
     networks:
