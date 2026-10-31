@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import { io } from "./socket/socket.js";
-import { env } from "node:process";
 
 const app = express();
 
@@ -90,37 +89,14 @@ app.post("/emit-event", async (req, res) => {
             let emittedCount = 0;
             const reachedRooms: string[] = [];
 
-            // for (const rName of targetRooms) {
-            //     const roomName = `${env.APP_ENV}:${rName}`;
-            //     const r = activeRooms.get(roomName);
-            //     if (r && r.size > 0) {
-            //         io.to(roomName).emit(event, data);
-            //         emittedCount += r.size;
-            //         reachedRooms.push(roomName);
-            //     }
-            // }
-
             for (const rName of targetRooms) {
-    const logicalRoom = String(rName).trim();
-
-    if (!logicalRoom) continue;
-
-    const prefix = `${env.APP_ENV}:`;
-
-    // Prevent duplicate environment prefixes
-    const roomName = logicalRoom.startsWith(prefix)
-        ? logicalRoom
-        : `${prefix}${logicalRoom}`;
-
-    const r = activeRooms.get(roomName);
-
-    if (r && r.size > 0) {
-        io.to(roomName).emit(event, data);
-
-        emittedCount += r.size;
-        reachedRooms.push(roomName);
-    }
-}
+                const r = activeRooms.get(rName);
+                if (r && r.size > 0) {
+                    io.to(rName).emit(event, data);
+                    emittedCount += r.size;
+                    reachedRooms.push(rName);
+                }
+            }
 
             console.log("📡 SOCKET EMIT:", {
                 event,
@@ -170,7 +146,7 @@ app.get("/debug/rooms", (req, res) => {
 
     const rooms: any = {};
     const allRooms = io.sockets.adapter.rooms;
-
+    
     for (const [roomName, roomSet] of allRooms) {
         // Skip default socket rooms (they start with socket id)
         if (roomName && !roomName.startsWith('/') && roomName !== 'undefined') {
@@ -200,7 +176,7 @@ app.post("/test/join", async (req, res) => {
         // This is just for testing - it will create a room without a socket
         // Useful for debugging
         const room = io.sockets.adapter.rooms.get(roomId.toString());
-
+        
         res.json({
             roomId,
             exists: !!room,
